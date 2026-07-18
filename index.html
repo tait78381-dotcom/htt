@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ThanhHai // 4 REALMS Mobile AI</title>
+    <style>
+        :root {
+            --theme-color: #3b82f6; 
+            --bg-space: #0a0e1a;
+            --panel-bg: rgba(16, 22, 42, 0.9);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+        }
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        body { background-color: var(--bg-space); color: var(--text-main); position: relative; min-height: 100vh; font-size: 14px; -webkit-tap-highlight-color: transparent; }
+        
+        #space-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; pointer-events: none; }
+        
+        header {
+            background: rgba(10, 14, 26, 0.95); border-bottom: 2px solid var(--theme-color); 
+            position: sticky; top: 0; z-index: 100; backdrop-filter: blur(10px); padding: 12px 15px;
+        }
+        .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .logo { font-size: 18px; font-weight: bold; letter-spacing: 0.5px; color: #fff; text-shadow: 0 0 10px var(--theme-color); }
+        .logo span { color: var(--theme-color); font-size: 14px; }
+        .theme-selector { display: flex; gap: 8px; align-items: center; overflow-x: auto; padding: 2px 0; }
+        .theme-dot { width: 20px; height: 20px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; flex-shrink: 0; }
+        .theme-dot.active { border-color: #fff; transform: scale(1.1); }
+        
+        .header-stats { display: flex; justify-content: space-between; gap: 10px; }
+        .xp-pill { background: rgba(255,255,255,0.05); padding: 6px 12px; border-radius: 15px; border: 1px solid var(--border-color); font-size: 12px; flex: 1; text-align: center; }
+        
+        main { padding: 15px; display: flex; flex-direction: column; gap: 15px; max-width: 600px; margin: 0 auto; }
+        
+        .panel { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 15px; backdrop-filter: blur(5px); }
+        .panel-title { font-size: 14px; font-weight: 700; text-transform: uppercase; margin-bottom: 12px; border-left: 3px solid var(--theme-color); padding-left: 8px; color: #fff; }
+        
+        /* AI Panel */
+        .ai-voice-panel { display: flex; align-items: center; justify-content: space-between; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
+        .ai-status { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+        .ai-indicator { width: 8px; height: 8px; border-radius: 50%; background: var(--success); box-shadow: 0 0 8px var(--success); }
+        .ai-indicator.speaking { animation: pulse 0.6s infinite alternate; background: var(--warning); box-shadow: 0 0 8px var(--warning); }
+        @keyframes pulse { from { transform: scale(0.9); opacity: 0.6; } to { transform: scale(1.2); opacity: 1; } }
+
+        /* Realms Horizontal Scroll for Mobile */
+        .realms-scroll-wrapper { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 5px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+        .realm-card { 
+            flex: 0 0 85%; scroll-snap-align: start; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); 
+            border-radius: 8px; padding: 12px; transition: 0.2s; 
+        }
+        .realm-card.active { border-color: var(--theme-color); background: rgba(59, 130, 246, 0.1); }
+        .realm-info { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+        .realm-icon { font-size: 20px; }
+        .realm-name { font-weight: bold; font-size: 13px; }
+        .realm-desc { font-size: 11px; color: var(--text-muted); height: 32px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+        .progress-container { width: 100%; height: 5px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; margin-top: 5px; }
+        .progress-bar { height: 100%; background: var(--theme-color); width: 0%; }
+        .realm-meta { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted); margin-top: 4px; }
+        
+        /* Map Nodes Layout */
+        .nodes-grid { display: flex; gap: 6px; overflow-x: auto; padding: 5px 0; }
+        .node-btn { 
+            width: 36px; height: 36px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.3); color: #fff; 
+            font-size: 12px; font-weight: bold; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+        }
+        .node-btn.completed { background: var(--success); border-color: var(--success); }
+        .node-btn.current { border-color: var(--theme-color); box-shadow: 0 0 8px var(--theme-color); background: rgba(255,255,255,0.1); }
+        .node-btn.locked { opacity: 0.4; color: var(--text-muted); }
+        .node-btn.project-node { width: auto; padding: 0 15px; background: rgba(245, 158, 11, 0.1); border-color: var(--warning); }
+        .node-btn.project-node.completed { background: var(--success); border-color: var(--success); }
+        
+        /* Workspace Setup */
+        .workspace { display: flex; flex-direction: column; gap: 15px; }
+        .lesson-header { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); padding: 8px 12px; border-radius: 8px; }
+        .lesson-title { font-size: 15px; font-weight: bold; color: #fff; }
+        
+        /* Stacked Context boxes */
+        .lesson-details-stack { display: flex; flex-direction: column; gap: 10px; }
+        .detail-box { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 12px; }
+        .detail-box h4 { font-size: 12px; text-transform: uppercase; color: var(--theme-color); margin-bottom: 4px; font-weight: bold; }
+        .detail-box p { font-size: 12.5px; line-height: 1.4; }
+        
+        /* Code Space Vertical stacking for mobile */
+        .coding-zone { display: flex; flex-direction: column; gap: 12px; }
+        .editor-container { position: relative; background: #05070f; border: 1px solid var(--border-color); border-radius: 8px; height: 180px; overflow: hidden; }
+        .editor-header { padding: 8px 12px; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-muted); }
+        .editor-area-wrapper { position: relative; flex: 1; width: 100%; height: 140px; overflow: hidden; }
+        .ghost-text, .typing-textarea, .visual-text { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; padding: 12px; 
+            font-family: 'Courier New', Courier, monospace; font-size: 14px; line-height: 1.4; 
+            white-space: pre-wrap; word-wrap: break-word; border: none; outline: none; background: transparent; resize: none;
+        }
+        .ghost-text { color: rgba(255, 255, 255, 0.18); pointer-events: none; z-index: 1; }
+        .typing-textarea { color: transparent; caret-color: #fff; z-index: 3; }
+        .visual-text { pointer-events: none; z-index: 2; }
+        .char-correct { color: #10b981; }
+        .char-wrong { color: #ef4444; background: rgba(239, 68, 68, 0.2); }
+        
+        .preview-container { background: #fff; color: #000; border-radius: 8px; height: 160px; overflow: hidden; display: flex; flex-direction: column; }
+        .preview-header { padding: 6px 12px; background: #e2e8f0; color: #475569; font-size: 11px; font-weight: bold; }
+        .preview-body { flex: 1; padding: 12px; overflow: auto; font-size: 13px; }
+        .preview-non-html { flex: 1; padding: 12px; overflow: auto; background: #1e1e2e; color: #a6adc8; font-family: monospace; font-size: 12px; white-space: pre-wrap; }
+        
+        /* Mobile Control Action Panels */
+        .controls-panel { display: flex; flex-direction: column; gap: 10px; margin-top: 5px; }
+        .checklist-box { display: flex; flex-wrap: wrap; gap: 8px 15px; background: rgba(255,255,255,0.02); padding: 8px; border-radius: 6px; }
+        .check-item { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--text-muted); }
+        .check-item.passed { color: var(--success); font-weight: bold; }
+        .check-item .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); }
+        .check-item.passed .dot { background: var(--success); }
+        
+        .btn-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+        button { 
+            padding: 10px 5px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; 
+            font-size: 12px; text-align: center; transition: 0.1s; -webkit-user-select: none;
+        }
+        .btn-primary { background: var(--theme-color); color: #fff; grid-column: span 3; padding: 12px; font-size: 14px; box-shadow: 0 4px 10px rgba(59,130,246,0.3); }
+        .btn-secondary { background: rgba(255,255,255,0.08); color: var(--text-main); border: 1px solid var(--border-color); }
+        .btn-danger { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); }
+        
+        /* Project Dashboard di động */
+        .project-zone { display: flex; flex-direction: column; gap: 15px; }
+        .project-intro { background: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 10px; padding: 15px; }
+        .project-title { font-size: 16px; font-weight: bold; color: var(--warning); margin-bottom: 6px; }
+        .project-req-list { margin: 10px 0; padding-left: 15px; font-size: 12px; line-height: 1.5; }
+        .project-textarea { width: 100%; height: 180px; background: #05070f; border: 1px solid var(--border-color); border-radius: 8px; color: #fff; font-family: monospace; padding: 10px; font-size: 13px; resize: none; outline: none; }
+        .proj-btn-group { display: flex; flex-direction: column; gap: 8px; }
+        
+        #sys-alert {
+            position: fixed; top: 15px; left: 15px; right: 15px; background: #10b981; color: white; padding: 12px;
+            border-radius: 6px; font-weight: bold; font-size: 12px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.4); 
+            transform: translateY(-150%); transition: transform 0.3s ease; z-index: 1000; pointer-events: none;
+        }
+        #sys-alert.show { transform: translateY(0); }
+    </style>
+</head>
+<body>
+
+    <canvas id="space-canvas"></canvas>
+
+    <header>
+        <div class="header-top">
+            <div class="logo">ThanhHai <span>// 4 REALMS</span></div>
+            <div class="theme-selector" id="theme-selectors"></div>
+        </div>
+        <div class="header-stats">
+            <div class="xp-pill" id="global-level">XP0🔥 0/220</div>
+            <div class="xp-pill" id="global-xp" style="color: var(--warning); font-weight: bold;">0 XP🔥</div>
+        </div>
+    </header>
+
+    <main>
+        <!-- AI Adam Assistant Controller -->
+        <div class="ai-voice-panel">
+            <div class="ai-status">
+                <div class="ai-indicator" id="adam-indicator"></div>
+                <span style="font-weight: bold; color: #fff;">Trợ lý AI Adam</span>
+            </div>
+            <button class="btn-secondary" style="padding: 5px 10px; font-size: 11px;" onclick="speakCurrentLesson()">🔊 Đọc bài</button>
+        </div>
+
+        <!-- Horizontal Selector Modules -->
+        <div class="panel" style="padding: 10px 12px;">
+            <div class="realms-scroll-wrapper" id="realms-container"></div>
+        </div>
+        
+        <!-- Horizontal Milestones Tracker -->
+        <div class="panel" style="padding: 10px 12px;">
+            <div class="panel-title" id="map-title" style="margin-bottom: 6px; font-size: 12px;">Bản Đồ Cột Mốc</div>
+            <div class="nodes-grid" id="nodes-map"></div>
+        </div>
+
+        <!-- Working Terminal Workspace -->
+        <div class="workspace" id="main-workspace">
+            <div id="lesson-mode" style="display:block;">
+                <div class="lesson-header">
+                    <div class="lesson-title" id="cur-lesson-title">Bài 1: Thẻ H1</div>
+                    <div id="match-percentage" style="color: var(--theme-color); font-weight: bold; font-size: 12px;">Khớp: 0%</div>
+                </div>
+
+                <div class="lesson-details-stack">
+                    <div class="detail-box">
+                        <h4>Cột Truyền</h4>
+                        <p id="cur-story">Đang tải...</p>
+                    </div>
+                    <div class="detail-box" style="border-left: 3px solid var(--warning);">
+                        <h4>Nhiệm Vụ</h4>
+                        <p id="cur-mission" style="font-weight: 500;">Đang tải...</p>
+                    </div>
+                </div>
+
+                <div class="coding-zone">
+                    <div class="editor-container">
+                        <div class="editor-header">
+                            <span>GHOST TYPING TERMINAL</span>
+                            <span id="editor-status">MỞ: BẬT</span>
+                        </div>
+                        <div class="editor-area-wrapper">
+                            <div class="ghost-text" id="ghost-layer"></div>
+                            <div class="visual-text" id="visual-layer"></div>
+                            <textarea class="typing-textarea" id="editor-input" spellcheck="false" autocomplete="off" inputmode="text"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="preview-container">
+                        <div class="preview-header">LIVE PREVIEW HỆ THỐNG</div>
+                        <div class="preview-body" id="html-preview"></div>
+                        <pre class="preview-non-html" id="console-preview" style="display: none;"></pre>
+                    </div>
+                </div>
+
+                <div class="controls-panel">
+                    <div class="checklist-box" id="checklist-container"></div>
+                    <div class="btn-grid">
+                        <button class="btn-secondary" onclick="useHint()">Gợi ý (-10)</button>
+                        <button class="btn-secondary" onclick="autoTypeOneChar()">Gõ 1 từ</button>
+                        <button class="btn-danger" onclick="clearEditor()">Xóa</button>
+                        <button class="btn-primary" onclick="verifyLesson()">KIỂM TRA ĐẠT YÊU CẦU</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Capstone Mobile Interface -->
+            <div id="project-mode" style="display:none;">
+                <div class="project-zone">
+                    <div class="project-intro">
+                        <div class="project-title" id="proj-title">BÀI TẬP LỚN CUỐI CÙNG</div>
+                        <p id="proj-desc" style="font-size:12px; color:var(--text-muted);"></p>
+                        <ul class="project-req-list" id="proj-requirements"></ul>
+                        <div style="margin-top: 8px;">
+                            <button class="btn-secondary" style="width:100%; padding:8px;" onclick="useProjectHint()">Trợ giúp (-20 XP)</button>
+                            <div id="proj-hint-text" style="font-size:12px; color: var(--warning); margin-top:5px; text-align:center;"></div>
+                        </div>
+                    </div>
+
+                    <textarea class="project-textarea" id="project-code-input" placeholder="Viết mã toàn vẹn của dự án lớn tại đây..."></textarea>
+
+                    <div class="proj-btn-group">
+                        <button class="btn-primary" style="background: var(--warning); color: #000;" onclick="verifyProject()">NỘP BÀI TẬP LỚN</button>
+                        <button class="btn-secondary" onclick="backToLessons()">Quay lại bài học</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="sys-alert">HỆ THỐNG CẬP NHẬT</div>
+
+    <script>
+        // AI Voice Motor (Adam Voice Engine)
+        const AdamAI = {
+            synth: window.speechSynthesis,
+            getAdamVoice() {
+                if (!this.synth) return null;
+                const voices = this.synth.getVoices();
+                // Tìm kiếm giọng đọc nam trầm (ưu tiên các voice mang tính chất male/low pitch)
+                return voices.find(v => v.name.toLowerCase().includes('adam') || v.name.toLowerCase().includes('google nhung') || (v.lang.includes('vi') && v.name.toLowerCase().includes('male'))) || 
+                       voices.find(v => v.lang.includes('vi')) || 
+                       voices.find(v => v.lang.includes('en') && v.name.toLowerCase().includes('male')) || null;
+            },
+            speak(text, callbackOnStart, callbackOnEnd) {
+                if (!this.synth) return;
+                this.synth.cancel(); // Dừng câu thoại trước đó ngay lập tức
+                
+                const utterance = new SpeechSynthesisUtterance(text);
+                const voice = this.getAdamVoice();
+                if (voice) utterance.voice = voice;
+                
+                utterance.pitch = 0.85; // Hạ giọng trầm hơn để mô phỏng Adam
+                utterance.rate = 0.95;  // Đọc từ tốn, đĩnh đạc
+                
+                utterance.onstart = () => { if(callbackOnStart) callbackOnStart(); };
+                utterance.onend = () => { if(callbackOnEnd) callbackOnEnd(); };
+                utterance.onerror = () => { if(callbackOnEnd) callbackOnEnd(); };
+                
+                this.synth.speak(utterance);
+            }
+        };
+
+        // Kích hoạt nạp voice hệ thống ngay khi sẵn sàng
+        if (window.speechSynthesis && window.speechSynthesis.onvoiceschanged !== undefined) {
+            window.speechSynthesis.onvoiceschanged = () => AdamAI.getAdamVoice();
+        }
+
+        const generateRealmsData = () => {
+            const configs = [
+                { id: 'html', name: 'HTML Realm', tag: 'UI Builder', desc: 'Thiết kế giao diện game, menu trạm chỉ huy', icon: '🌐' },
+                { id: 'python', name: 'Python Realm', tag: 'Logic Core', desc: 'Xử lý logic lõi trạm, thuật toán, AI dữ liệu', icon: '🐍' },
+                { id: 'lua', name: 'Lua Realm', tag: 'Roblox Script', desc: 'Kịch bản điều khiển vật lý hạt không gian', icon: '🌙' },
+                { id: 'cpp', name: 'C++ Realm', tag: 'High Perf', desc: 'Quản lý tài nguyên, tối ưu hiệu năng phần cứng', icon: '⚙️' }
+            ];
+            const data = {};
+            configs.forEach(c => {
+                data[c.id] = { name: c.name, tag: c.tag, desc: c.desc, icon: c.icon, lessons: [], project: getProjectData(c.id) };
+                for(let i=1; i<=55; i++) data[c.id].lessons.push(generateLesson(c.id, i));
+            });
+            return data;
+        };
+
+        const generateLesson = (realmId, index) => {
+            let title = `Bài ${index}: `, story = "", mission = "", code = "", checks = [];
+            if(realmId === 'html') {
+                if(index === 1) {
+                    title += "Thẻ H1 Khởi Động";
+                    story = "Màn hình trạm cần tiêu đề lớn. Thẻ h1 dùng định nghĩa tiêu đề quan trọng nhất.";
+                    mission = "Gõ chính xác thẻ h1 chứa nội dung GAME START.";
+                    code = "<h1>GAME START</h1>";
+                    checks = ["Chứa '<h1>'", "Chứa '</h1>'"];
+                } else if(index === 55) {
+                    title += "Bao đóng Wrapper";
+                    story = "Bài học cuối cùng. Cấu trúc bao đóng toàn bộ hệ thống bằng khối div.";
+                    mission = "Tạo thẻ div đóng mở tích hợp class mang tên game-wrapper.";
+                    code = "<div class=\"game-wrapper\">End</div>";
+                    checks = ["Chứa 'div'", "Chứa 'game-wrapper'"];
+                } else {
+                    title += `Khối cấu trúc giao diện ${index}`;
+                    story = `Tầng dựng giao diện thứ ${index} của hệ thống trạm chỉ huy.`;
+                    mission = `Xây dựng thẻ phân tách khối dữ liệu cho phân vùng số ${index}.`;
+                    code = `<div id="ui-${index}">UI ${index}</div>`;
+                    checks = ["Chứa 'div'", `Chứa 'ui-${index}'`];
+                }
+            } else if(realmId === 'python') {
+                if(index === 1) {
+                    title += "Hàm xuất print()";
+                    story = "Hàm xuất dữ liệu cơ bản ra màn hình giám sát trung tâm hành lang.";
+                    mission = "Viết cấu trúc hàm hiển thị chuỗi ký tự Core Active.";
+                    code = "print('Core Active')";
+                    checks = ["Chứa 'print'", "Chứa 'Core Active'"];
+                } else {
+                    title += `Logic xử lý số ${index}`;
+                    story = `Tính toán dòng điều phối tài nguyên hệ thống phân đoạn tầng số ${index}.`;
+                    mission = `Khai báo định danh dữ liệu vòng lặp xử lý logic của trạm tương ứng.`;
+                    code = `core_val_${index} = ${index * 5}`;
+                    checks = [`Chứa 'core_val_${index}'`, "Cú pháp Python"];
+                }
+            } else if(realmId === 'lua') {
+                if(index === 1) {
+                    title += "Biến cục bộ Local";
+                    story = "Tối ưu hóa phạm vi xử lý bộ nhớ cục bộ trong tập lệnh vận hành Roblox.";
+                    mission = "Thiết lập biến local ánh xạ đến đối tượng vật thể gốc của mã kịch bản.";
+                    code = "local target = script.Parent";
+                    checks = ["Chứa 'local'", "Chứa 'script.Parent'"];
+                } else {
+                    title += `Kịch bản hạt cấp ${index}`;
+                    story = `Vận hành chuyển động thực thể phân khu không gian thứ ${index}.`;
+                    mission = `Xác lập chỉ số cấu hình vị trí hoặc trọng lực phần tử số ${index}.`;
+                    code = `local node_${index} = ${index}`;
+                    checks = [`Chứa 'node_${index}'`, "Khai báo local"];
+                }
+            } else {
+                if(index === 1) {
+                    title += "Hàm main() C++";
+                    story = "Điểm khởi tạo bắt buộc đối với mọi tiến trình phần cứng cấp cao.";
+                    mission = "Thiết lập hàm main trả về trạng thái 0 để kết thúc luồng.";
+                    code = "int main() {\n    return 0;\n}";
+                    checks = ["Chứa 'int main'", "Chứa 'return 0;'"];
+                } else {
+                    title += `Thanh ghi phần cứng ${index}`;
+                    story = `Định cấu hình truyền tải điện năng tối ưu cho cổng logic số ${index}.`;
+                    mission = `Khai báo biến số nguyên định danh phần cứng lưu trữ tạm thời.`;
+                    code = `int register_id_${index} = ${index};`;
+                    checks = [`Chứa 'register_id_${index}'`, "Kết thúc bằng ';'"];
+                }
+            }
+            return { title, story, mission, code, checks };
+        };
+
+        const getProjectData = (realmId) => {
+            if(realmId === 'html') {
+                return { title: "Dự Án Lớn: SHOP GAME & DIỄN ĐÀN VŨ TRỤ", desc: "Dựng cấu trúc UI tổng hợp chứa menu, số dư, vật phẩm và nút thao tác mua hàng.", reqs: ["Có h1 làm tiêu đề", "Có div class='shop-menu'", "Hiển thị tiền tố id='gold' và id='diamond'", "Ít nhất 2 thẻ button mua bán"], keywords: ["h1", "shop-menu", "gold", "diamond", "button"], hint: "Tạo cấu trúc div bọc toàn bộ, bên trong chia nhỏ các phần tử dạng khối đứng." };
+            } else if(realmId === 'python') {
+                return { title: "Dự Án Lớn: QUẢN LÝ PHI HÀNH ĐOÀN & AI ĐIỀU PHỐI OXY", desc: "Xử lý danh sách nhân sự kết hợp tính toán logic dự toán tiêu hao tài nguyên.", reqs: ["Mảng lưu trữ crew_list", "Hàm định nghĩa def predict_oxygen", "Cấu trúc nhánh if/else", "In kết quả bằng lệnh print"], keywords: ["crew_list", "def predict_oxygen", "if", "print"], hint: "Sử dụng từ khóa def để mở rộng cấu trúc hàm logic." };
+            } else if(realmId === 'lua') {
+                return { title: "Dự Án Lớn: SCRIPT ĐIỀU KHIỂN ĐỘNG LỰC HỌC ROBLOX", desc: "Viết vòng lặp liên tục quét và biến đổi trạng thái màu sắc thực thể tự động.", reqs: ["Vòng lặp while true do", "Định dạng Color hoặc Position", "Chống nghẽn luồng bằng task.wait", "Đóng khối lệnh bằng từ khóa end"], keywords: ["while true do", "Color", "task.wait", "end"], hint: "Luôn chèn lệnh dừng tạm thời task.wait để thiết bị di động không bị treo luồng." };
+            } else {
+                return { title: "Dự Án Lớn: QUẢN LÝ KHO TÀI NGUYÊN HỆ THỐNG C++", desc: "Tạo ứng dụng Console hoàn chỉnh quản lý chỉ số Vàng và Kim cương cấp độ sâu phần cứng.", reqs: ["Khai báo thư viện #include <iostream>", "Biến lưu trữ gold_balance và diamond_balance", "Khung hàm xử lý mua bán", "Hàm main trả về giá trị số 0"], keywords: ["#include <iostream>", "gold_balance", "main", "return 0"], hint: "Tổ chức mã nguồn tuần tự từ khai báo thư viện đến thân hàm xử lý." };
+            }
+        };
+
+        let state = { xp: 0, level: 0, currentRealm: 'html', currentLessonIdx: 0, progress: { html: 0, python: 0, lua: 0, cpp: 0 }, projectCompleted: { html: false, python: false, lua: false, cpp: false }, activeTheme: '#3b82f6', isInProjectMode: false };
+        const realmsData = generateRealmsData();
+
+        const initSpaceCanvas = () => {
+            const canvas = document.getElementById('space-canvas');
+            const ctx = canvas.getContext('2d');
+            let w = canvas.width = window.innerWidth, h = canvas.height = window.innerHeight;
+            window.addEventListener('resize', () => { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; });
+            const stars = Array.from({ length: 50 }, () => ({ x: Math.random() * w, y: Math.random() * h, r: Math.random() * 1.2, alpha: Math.random(), speed: 0.02 }));
+            const meteors = Array.from({ length: 2 }, () => ({ x: Math.random() * w, y: -50, len: 40, speed: 10, angle: 0.7 }));
+            const draw = () => {
+                ctx.fillStyle = '#0a0e1a'; ctx.fillRect(0, 0, w, h);
+                stars.forEach(s => { s.alpha += s.speed; if(s.alpha > 1 || s.alpha < 0) s.speed = -s.speed; ctx.fillStyle = `rgba(255,255,255,${Math.max(0.2, s.alpha)})`; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill(); });
+                meteors.forEach(m => { m.x += m.speed; m.y += m.speed * m.angle; ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(m.x, m.y); ctx.lineTo(m.x - m.len, m.y - m.len * m.angle); ctx.stroke(); if(m.x > w + 50 || m.y > h + 50) { m.x = Math.random() * (w*0.5); m.y = -40; } });
+                requestAnimationFrame(draw);
+            };
+            draw();
+        };
+
+        const loadState = () => {
+            const saved = localStorage.getItem('morn_mobile_state');
+            if(saved) { try { state = { ...state, ...JSON.parse(saved) }; } catch(e){} }
+            applyTheme(state.activeTheme);
+        };
+        const saveState = () => localStorage.setItem('morn_mobile_state', JSON.stringify(state));
+
+        const applyTheme = (color) => {
+            state.activeTheme = color;
+            document.documentElement.style.setProperty('--theme-color', color);
+            document.querySelectorAll('.theme-dot').forEach(d => d.classList.toggle('active', d.dataset.color === color));
+            saveState();
+        };
+
+        const renderThemeSelector = () => {
+            const container = document.getElementById('theme-selectors'); container.innerHTML = '';
+            [ '#3b82f6', '#ec4899', '#a855f7', '#10b981', '#eab308', '#ef4444', '#ffffff' ].forEach(c => {
+                const d = document.createElement('div'); d.className = 'theme-dot'; d.style.backgroundColor = c; d.dataset.color = c;
+                d.addEventListener('click', () => applyTheme(c)); container.appendChild(d);
+            });
+        };
+
+        const updateStats = () => {
+            document.getElementById('global-xp').innerText = `${state.xp} XP🔥`;
+            state.level = Math.floor(state.xp / 220);
+            document.getElementById('global-level').innerText = `XP${state.level}🔥 ${state.xp % 220}/220`;
+        };
+
+        const renderRealms = () => {
+            const container = document.getElementById('realms-container'); container.innerHTML = '';
+            Object.keys(realmsData).forEach(k => {
+                const r = realmsData[k]; const done = state.progress[k]; const isProjDone = state.projectCompleted[k];
+                const percent = Math.floor(((done + (isProjDone ? 1 : 0)) / 56) * 100);
+                const card = document.createElement('div'); card.className = `realm-card ${state.currentRealm === k ? 'active' : ''}`;
+                card.innerHTML = `<div class="realm-info"><span class="realm-icon">${r.icon}</span><div><div class="realm-name">${r.name}</div></div></div><div class="realm-desc">${r.desc}</div><div class="realm-meta"><span>${done}/55 Bài</span><span>${percent}%</span></div><div class="progress-container"><div class="progress-bar" style="width: ${percent}%"></div></div>`;
+                card.addEventListener('click', () => switchRealm(k)); container.appendChild(card);
+            });
+        };
+
+        const renderMapNodes = () => {
+            const container = document.getElementById('nodes-map'); container.innerHTML = '';
+            const done = state.progress[state.currentRealm];
+            document.getElementById('map-title').innerText = `Mốc Học: ${realmsData[state.currentRealm].name}`;
+            
+            for(let i=0; i<55; i++) {
+                const btn = document.createElement('button'); btn.className = 'node-btn'; btn.innerText = i + 1;
+                if(i < done) { btn.classList.add('completed'); btn.innerText = '✓'; btn.addEventListener('click', () => loadLessonIndex(i)); }
+                else if(i === done) { btn.classList.add('current'); btn.addEventListener('click', () => loadLessonIndex(i)); }
+                else { btn.classList.add('locked'); btn.innerText = '🔒'; }
+                container.appendChild(btn);
+            }
+            const pBtn = document.createElement('button'); pBtn.className = 'node-btn project-node';
+            if(state.projectCompleted[state.currentRealm]) { pBtn.classList.add('completed'); pBtn.innerText = '✓ DỰ ÁN Xong'; }
+            else if(done >= 55) { pBtn.classList.add('current'); pBtn.innerText = '⚡ DỰ ÁN MỞ'; pBtn.addEventListener('click', () => enterProjectMode()); }
+            else { pBtn.classList.add('locked'); pBtn.innerText = '🔒 DỰ ÁN'; }
+            container.appendChild(pBtn);
+        };
+
+        const initGhostTyping = (targetCode) => {
+            const input = document.getElementById('editor-input');
+            const ghost = document.getElementById('ghost-layer');
+            const visual = document.getElementById('visual-layer');
+            
+            input.value = ''; ghost.textContent = targetCode; visual.innerHTML = '';
+            
+            input.onscroll = () => { ghost.scrollTop = visual.scrollTop = input.scrollTop; ghost.scrollLeft = visual.scrollLeft = input.scrollLeft; };
+            input.oninput = () => {
+                const val = input.value; let feedback = '', correct = 0;
+                for(let i=0; i<targetCode.length; i++) {
+                    if(i < val.length) {
+                        if(val[i] === targetCode[i]) { feedback += `<span class="char-correct">${escapeHtml(targetCode[i])}</span>`; correct++; }
+                        else { feedback += `<span class="char-wrong">${escapeHtml(targetCode[i])}</span>`; }
+                    }
+                }
+                visual.innerHTML = feedback;
+                const acc = targetCode.length > 0 ? Math.floor((correct / targetCode.length) * 100) : 0;
+                document.getElementById('match-percentage').innerText = `Khớp: ${acc}%`;
+                executePreview(val); updateChecklist(val, acc);
+            };
+        };
+
+        const escapeHtml = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const executePreview = (v) => {
+            const htmlP = document.getElementById('html-preview'); const consP = document.getElementById('console-preview');
+            if(state.currentRealm === 'html') { htmlP.style.display = 'block'; consP.style.display = 'none'; htmlP.innerHTML = v; }
+            else { htmlP.style.display = 'none'; consP.style.display = 'block'; consP.textContent = `[Mô phỏng di động]\n>> ${v || 'Chờ nhập mã...'}`; }
+        };
+
+        const updateChecklist = (val, acc) => {
+            const container = document.getElementById('checklist-container'); container.innerHTML = '';
+            const lesson = realmsData[state.currentRealm].lessons[state.currentLessonIdx];
+            const c1 = val.includes(lesson.checks[0].replace("Chứa ", "").replace(/'/g, ""));
+            const c2 = val.includes(lesson.checks[1].replace("Chứa ", "").replace(/'/g, ""));
+            const c3 = acc >= 90;
+
+            const add = (text, p) => {
+                const item = document.createElement('div'); item.className = `check-item ${p ? 'passed' : ''}`;
+                item.innerHTML = `<span class="dot"></span> ${text}`; container.appendChild(item);
+            };
+            add(lesson.checks[0], c1); add(lesson.checks[1], c2); add(`Độ khớp ≥90%`, c3);
+        };
+
+        const speakCurrentLesson = () => {
+            const l = realmsData[state.currentRealm].lessons[state.currentLessonIdx];
+            const speechText = `Thanh Hải chú ý. Khởi động bài ${state.currentLessonIdx + 1}. ${l.story}. Nhiệm vụ của bạn là: ${l.mission}`;
+            
+            AdamAI.speak(speechText, 
+                () => document.getElementById('adam-indicator').classList.add('speaking'),
+                () => document.getElementById('adam-indicator').classList.remove('speaking')
+            );
+        };
+
+        const loadLessonIndex = (idx) => {
+            state.isInProjectMode = false;
+            document.getElementById('lesson-mode').style.display = 'block';
+            document.getElementById('project-mode').style.display = 'none';
+            state.currentLessonIdx = idx;
+            
+            const l = realmsData[state.currentRealm].lessons[idx];
+            document.getElementById('cur-lesson-title').innerText = l.title;
+            document.getElementById('cur-story').innerText = l.story;
+            document.getElementById('cur-mission').innerText = l.mission;
+            
+            initGhostTyping(l.code); executePreview('');
+            document.getElementById('match-percentage').innerText = 'Khớp: 0%';
+            updateChecklist('', 0); renderMapNodes();
+            
+            // Tự động đọc thông tin bài học mới bằng giọng Adam
+            setTimeout(() => speakCurrentLesson(), 400);
+        };
+
+        const switchRealm = (rId) => { state.currentRealm = rId; if(state.progress[rId] >= 55 && !state.projectCompleted[rId]) enterProjectMode(); else loadLessonIndex(Math.min(state.progress[rId], 54)); renderRealms(); };
+        const clearEditor = () => { const i = document.getElementById('editor-input'); i.value = ''; i.dispatchEvent(new Event('input')); };
+        const autoTypeOneChar = () => { const i = document.getElementById('editor-input'); const c = realmsData[state.currentRealm].lessons[state.currentLessonIdx].code; if(i.value.length < c.length) { i.value += c[i.value.length]; i.dispatchEvent(new Event('input')); } };
+        
+        const useHint = () => { 
+            const code = realmsData[state.currentRealm].lessons[state.currentLessonIdx].code;
+            showAlert(`MẪU: ${code}`); 
+            state.xp = Math.max(0, state.xp - 10); 
+            updateStats(); 
+            AdamAI.speak("Hệ thống đã hiển thị cấu trúc gợi ý.", null, null);
+        };
+        
+        const showAlert = (m) => { const a = document.getElementById('sys-alert'); a.innerText = m; a.classList.add('show'); setTimeout(() => a.classList.remove('show'), 3500); };
+
+        const verifyLesson = () => {
+            const val = document.getElementById('editor-input').value;
+            const l = realmsData[state.currentRealm].lessons[state.currentLessonIdx];
+            let c = 0; for(let i=0; i<l.code.length; i++) { if(val[i] === l.code[i]) c++; }
+            const acc = l.code.length > 0 ? (c / l.code.length) * 100 : 0;
+            if(val.includes(l.checks[0].replace("Chứa ", "").replace(/'/g, "")) && val.includes(l.checks[1].replace("Chứa ", "").replace(/'/g, "")) && acc >= 90) {
+                showAlert("ĐẠT YÊU CẦU! Hệ thống tự động chuyển bài.");
+                AdamAI.speak("Chúc mừng Thanh Hải. Kiểm tra đạt yêu cầu.", null, null);
+                if(state.currentLessonIdx === state.progress[state.currentRealm]) { state.progress[state.currentRealm]++; state.xp += 40; updateStats(); saveState(); renderRealms(); }
+                setTimeout(() => { if(state.progress[state.currentRealm] >= 55) enterProjectMode(); else loadLessonIndex(state.currentLessonIdx + 1); }, 1500);
+            } else { 
+                showAlert("THẤT BẠI: Chưa thỏa mãn điều kiện kiểm tra."); 
+                AdamAI.speak("Mã nguồn chưa đồng bộ chính xác. Hãy kiểm tra lại.", null, null);
+            }
+        };
+
+        const enterProjectMode = () => {
+            state.isInProjectMode = true;
+            document.getElementById('lesson-mode').style.display = 'none';
+            document.getElementById('project-mode').style.display = 'block';
+            document.getElementById('proj-hint-text').innerText = '';
+            const p = realmsData[state.currentRealm].project;
+            document.getElementById('proj-title').innerText = p.title;
+            document.getElementById('proj-desc').innerText = p.desc;
+            const rc = document.getElementById('proj-requirements'); rc.innerHTML = '';
+            p.reqs.forEach(r => { const li = document.createElement('li'); li.innerText = r; rc.appendChild(li); });
+            document.getElementById('project-code-input').value = localStorage.getItem(`morn_m_proj_${state.currentRealm}`) || '';
+            renderMapNodes();
+            AdamAI.speak(`Cảnh báo. Bạn đã bước vào khu vực bài tập lớn của ${realmsData[state.currentRealm].name}.`, null, null);
+        };
+
+        const backToLessons = () => loadLessonIndex(Math.min(state.progress[state.currentRealm], 54));
+        const useProjectHint = () => { if(state.xp >= 20) { state.xp -= 20; updateStats(); document.getElementById('proj-hint-text').innerText = `💡 ${realmsData[state.currentRealm].project.hint}`; saveState(); } else { showAlert("Không đủ 20 XP."); } };
+        
+        const verifyProject = () => {
+            const code = document.getElementById('project-code-input').value; localStorage.setItem(`morn_m_proj_${state.currentRealm}`, code);
+            const p = realmsData[state.currentRealm].project; let missing = [];
+            p.keywords.forEach(w => { if(!code.includes(w)) missing.push(w); });
+            if(missing.length === 0 && code.trim().length > 15) {
+                showAlert("HOÀN THÀNH BÀI TẬP LỚN!");
+                AdamAI.speak("Tuyệt vời. Bạn đã hoàn thành xuất sắc bài tập lớn.", null, null);
+                state.projectCompleted[state.currentRealm] = true; state.xp += 200; updateStats(); saveState(); renderRealms(); renderMapNodes();
+            } else { 
+                showAlert("CẢNH BÁO: Mã nguồn thiếu cấu trúc bắt buộc."); 
+                AdamAI.speak("Dự án lỗi, thiếu từ khóa nền tảng.", null, null);
+            }
+        };
+
+        window.onload = () => { initSpaceCanvas(); loadState(); renderThemeSelector(); updateStats(); renderRealms(); const done = state.progress[state.currentRealm]; if(done >= 55 && !state.projectCompleted[state.currentRealm]) enterProjectMode(); else loadLessonIndex(Math.min(done, 54)); };
+    </script>
+</body>
+</html>
+
+```
